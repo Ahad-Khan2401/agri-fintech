@@ -1,0 +1,10 @@
+project_id = "yfmmcvdlnkpvlojdfkbt"
+
+[functions.invest]
+verify_jwt = false
+
+[functions.approve-sale]
+verify_jwt = false
+
+[functions.release-escrow]
+verify_jwt = false

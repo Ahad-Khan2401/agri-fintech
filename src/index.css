@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 50 18% 97%;
+    --foreground: 210 28% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 28% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 28% 13%;
+    --primary: 156 67% 26%;
+    --primary-foreground: 50 60% 98%;
+    --secondary: 42 40% 93%;
+    --secondary-foreground: 210 28% 13%;
+    --muted: 45 30% 94%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 45 70% 86%;
+    --accent-foreground: 210 28% 13%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 38 20% 84%;
+    --input: 38 20% 84%;
+    --ring: 156 67% 26%;
+    --radius: 0.55rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at 10% 0%, rgba(179, 132, 57, 0.12), transparent 38%),
+      radial-gradient(circle at 90% 100%, rgba(14, 95, 67, 0.12), transparent 38%);
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Fraunces', ui-serif, Georgia, serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  .premium-shell {
+    @apply bg-[#f7efe0]/90 backdrop-blur-md border border-[#d8b56d]/20 shadow-[0_28px_76px_-46px_rgba(13,18,23,0.65)];
+  }
+
+  .premium-hero {
+    background:
+      radial-gradient(ellipse at top right, rgba(226, 190, 120, 0.24), transparent 42%),
+      radial-gradient(ellipse at bottom left, rgba(15, 88, 63, 0.35), transparent 45%),
+      linear-gradient(145deg, #101518 0%, #102019 50%, #162024 100%);
+  }
+
+  .enterprise-page {
+    @apply min-h-screen;
+    background:
+      radial-gradient(circle at 10% 5%, rgba(216, 181, 109, 0.16), transparent 28%),
+      radial-gradient(circle at 88% 12%, rgba(69, 25, 29, 0.12), transparent 30%),
+      linear-gradient(135deg, #f6f0e4 0%, #efe5d3 52%, #e9efe9 100%);
+  }
+
+  .enterprise-hero {
+    @apply overflow-hidden rounded-lg bg-[#0d1514] text-white shadow-[0_32px_90px_-42px_rgba(20,38,31,0.9)];
+  }
+
+  .luxury-card {
+    @apply rounded-lg border border-[#d8b56d]/20 bg-[#f7efe0]/90 shadow-[0_28px_76px_-46px_rgba(13,18,23,0.65)];
+  }
+
+  .luxury-dark-card {
+    @apply rounded-lg border border-[#d8b56d]/18 bg-[#121f1c] text-[#f8f1df] shadow-[0_30px_90px_-52px_rgba(0,0,0,0.95)];
+  }
+
+  .luxury-kicker {
+    @apply text-xs font-bold uppercase tracking-[0.24em] text-[#9a7434];
+  }
+
+  .responsive-grid {
+    @apply grid gap-4 sm:grid-cols-2 xl:grid-cols-4;
+  }
+
+  .touch-target {
+    min-height: 44px;
+  }
+}
