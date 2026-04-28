@@ -200,7 +200,7 @@ export const useAuth = create<AuthState>()(
           if (role && typeof window !== 'undefined') {
             window.localStorage.setItem(OAUTH_ROLE_KEY, role)
           }
-          const redirectTo = `${window.location.origin}/login`
+          const redirectTo = `${window.location.origin}/`
           const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
