@@ -3,17 +3,17 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "plpgsql";
 
 -- ENUM TYPES
-CREATE TYPE user_role AS ENUM ('investor', 'farmer', 'admin');
-CREATE TYPE status AS ENUM ('pending', 'approved', 'rejected', 'active', 'completed', 'draft', 'funded', 'in_progress', 'sold', 'loss', 'fraud');
-CREATE TYPE tx_type AS ENUM ('deposit', 'investment', 'escrow_hold', 'maintenance_release', 'profit_share', 'platform_fee', 'insurance_payout', 'refund');
+CREATE TYPE public.user_role AS ENUM ('investor', 'farmer', 'admin');
+CREATE TYPE public.status AS ENUM ('pending', 'approved', 'rejected', 'active', 'completed', 'draft', 'funded', 'in_progress', 'sold', 'loss', 'fraud');
+CREATE TYPE public.tx_type AS ENUM ('deposit', 'investment', 'escrow_hold', 'maintenance_release', 'profit_share', 'platform_fee', 'insurance_payout', 'refund');
 
 -- TABLES
 CREATE TABLE profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  role user_role NOT NULL,
+  role public.user_role NOT NULL,
   phone VARCHAR(15),
   phone_verified BOOLEAN DEFAULT FALSE,
-  status status DEFAULT 'pending',
+  status public.status DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -29,11 +29,11 @@ CREATE TABLE wallets (
 CREATE TABLE transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES wallets(user_id) ON DELETE CASCADE,
-  type tx_type NOT NULL,
+  type public.tx_type NOT NULL,
   amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
   reference_id UUID,
   metadata JSONB,
-  status status DEFAULT 'pending',
+  status public.status DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -45,12 +45,14 @@ CREATE TABLE livestock (
   age_months INT CHECK (age_months > 0),
   weight_kg DECIMAL(5,1) CHECK (weight_kg > 0),
   location JSONB NOT NULL,
+  location_city TEXT,
+  area TEXT,
   cost_price NUMERIC(12,2) NOT NULL CHECK (cost_price > 0),
   total_shares INT NOT NULL CHECK (total_shares > 0),
   price_per_share NUMERIC(8,2) NOT NULL,
   farmer_shares INT NOT NULL,
   shares_available INT,
-  status status DEFAULT 'draft',
+  status public.status DEFAULT 'draft',
   insurance_enabled BOOLEAN DEFAULT FALSE,
   missing_updates INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -99,7 +101,7 @@ CREATE TABLE sale_requests (
   receipt_url TEXT,
   sale_video_url TEXT,
   buyer_otp_verified BOOLEAN DEFAULT FALSE,
-  status status DEFAULT 'pending',
+  status public.status DEFAULT 'pending',
   admin_verified_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -131,7 +133,7 @@ CREATE TABLE fraud_flags (
   flag_type VARCHAR(50),
   severity INT DEFAULT 1,
   description TEXT,
-  status status DEFAULT 'pending',
+  status public.status DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -139,10 +141,12 @@ CREATE TABLE kyc_documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   type VARCHAR(30),
+  document_type VARCHAR(30),
   file_url TEXT,
-  status status DEFAULT 'pending',
+  status public.status DEFAULT 'pending',
   verified_by UUID REFERENCES profiles(id),
   notes TEXT,
+  admin_notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -198,6 +202,7 @@ ALTER TABLE livestock_updates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sale_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fraud_flags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kyc_documents ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow profile self read" ON profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Admin full access" ON profiles FOR ALL USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
@@ -218,6 +223,14 @@ CREATE POLICY "Updates insert farmer" ON livestock_updates FOR INSERT WITH CHECK
 
 CREATE POLICY "Audit logs read only admin" ON audit_logs FOR SELECT USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
+CREATE POLICY "KYC self access" ON kyc_documents FOR ALL
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "KYC admin access" ON kyc_documents FOR ALL
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'))
+  WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+
 CREATE OR REPLACE FUNCTION set_rls_context()
 RETURNS trigger AS $$
 BEGIN
@@ -228,3 +241,4 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create initial admin trigger for context
+

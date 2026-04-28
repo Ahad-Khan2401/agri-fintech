@@ -1,39 +1,5 @@
--- Smooth Google/email signup bootstrap for existing production schema.
-
-DO $$
-BEGIN
-  IF to_regtype('public.user_role') IS NULL THEN
-    CREATE TYPE public.user_role AS ENUM ('investor', 'farmer', 'admin');
-  END IF;
-END $$;
-
-ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS phone_verified boolean DEFAULT false;
-
-ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS full_name text;
-
-ALTER TABLE public.wallets
-  ALTER COLUMN user_id SET NOT NULL;
-
-DROP POLICY IF EXISTS "Allow profile self insert" ON public.profiles;
-CREATE POLICY "Allow profile self insert"
-ON public.profiles
-FOR INSERT
-WITH CHECK (auth.uid() = id);
-
-DROP POLICY IF EXISTS "Allow profile self update" ON public.profiles;
-CREATE POLICY "Allow profile self update"
-ON public.profiles
-FOR UPDATE
-USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id);
-
-DROP POLICY IF EXISTS "Allow wallet self insert" ON public.wallets;
-CREATE POLICY "Allow wallet self insert"
-ON public.wallets
-FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+-- Prevent first-time Google login from silently becoming an investor.
+-- The app creates OAuth profiles after Signup stores the chosen one-time role.
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger

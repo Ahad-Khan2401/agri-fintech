@@ -2,13 +2,33 @@
 
 DO $$
 BEGIN
+  IF to_regtype('public.status') IS NULL THEN
+    CREATE TYPE public.status AS ENUM (
+      'pending',
+      'approved',
+      'rejected',
+      'active',
+      'completed',
+      'draft',
+      'funded',
+      'in_progress',
+      'sold',
+      'loss',
+      'fraud',
+      'medical_review'
+    );
+  END IF;
+END $$;
+
+DO $$
+BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM pg_type t
     JOIN pg_enum e ON t.oid = e.enumtypid
-    WHERE t.typname = 'status' AND e.enumlabel = 'medical_review'
+    WHERE t.typname = 'status' AND t.typnamespace = 'public'::regnamespace AND e.enumlabel = 'medical_review'
   ) THEN
-    ALTER TYPE status ADD VALUE 'medical_review';
+    ALTER TYPE public.status ADD VALUE 'medical_review';
   END IF;
 END $$;
 

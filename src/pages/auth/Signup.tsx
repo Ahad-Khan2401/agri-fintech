@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/Input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../components/ui/Form'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/Select'
+import { getDashboardPath } from '../../lib/auth-routing'
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 
 const schema = z.object({
@@ -16,7 +17,7 @@ const schema = z.object({
   email: z.string().email('Invalid email address'),
   phone: z.string().regex(/^03\d{9}$/, 'Enter valid PK phone (03XXXXXXXXX)'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  role: z.enum(['investor', 'farmer']),
+  role: z.enum(['investor', 'farmer'], { required_error: 'Choose account type first' }),
   agree_terms: z.boolean().refine(val => val === true, 'You must agree to Terms & Conditions'),
 })
 
@@ -24,14 +25,14 @@ type SignupFormData = z.infer<typeof schema>
 
 export default function Signup() {
   const navigate = useNavigate()
-  const { signup, loginWithGoogle, isLoading } = useAuth()
+  const { signup, loginWithGoogle, isLoading, profile } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   const form = useForm<SignupFormData>({
     resolver: zodResolver(schema),
-    defaultValues: { full_name: '', email: '', phone: '', password: '', role: 'investor', agree_terms: false }
+    defaultValues: { full_name: '', email: '', phone: '', password: '', role: undefined as any, agree_terms: false }
   })
 
   const onSubmit = async (data: SignupFormData) => {
@@ -44,11 +45,8 @@ export default function Signup() {
       if (result.success) {
         setSuccessMsg('Account created! Redirecting...')
         setTimeout(() => {
-          if (data.role === 'farmer') {
-            navigate('/farmer/kyc', { replace: true })
-          } else {
-            navigate('/investor', { replace: true })
-          }
+          const latestProfile = useAuth.getState().profile || profile
+          navigate(getDashboardPath(latestProfile || ({ role: data.role, status: data.role === 'farmer' ? 'pending' : 'active' } as any)), { replace: true })
         }, 1500)
       } else {
         setServerError(result.error || 'Signup failed')
@@ -63,8 +61,13 @@ export default function Signup() {
   const handleGoogleSignup = async () => {
     setServerError(null)
     setSuccessMsg(null)
-    setSubmitting(true)
     const role = form.getValues('role')
+    if (!role) {
+      setServerError('Please choose Investor or Farmer before continuing with Google.')
+      form.setError('role', { message: 'Choose account type first' })
+      return
+    }
+    setSubmitting(true)
     const result = await loginWithGoogle(role)
     if (!result.success) setServerError(result.error || 'Google signup failed')
     setSubmitting(false)
@@ -156,7 +159,7 @@ export default function Signup() {
               </div>
               <Button type="button" variant="outline" onClick={handleGoogleSignup} className="w-full h-11 border-stone-200 bg-white font-medium text-stone-800 hover:bg-stone-50" disabled={submitting || isLoading}>
                 <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold text-blue-600 shadow-sm">G</span>
-                {submitting ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Opening Google...</span> : `Continue with Google as ${form.watch('role') === 'farmer' ? 'Farmer' : 'Investor'}`}
+                {submitting ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Opening Google...</span> : (form.watch('role') ? `Continue with Google as ${form.watch('role') === 'farmer' ? 'Farmer' : 'Investor'}` : 'Choose type for Google')}
               </Button>
               <p className="text-xs text-center text-stone-500">
                 Google signup only needs account type. Profile/KYC details can be completed after login.

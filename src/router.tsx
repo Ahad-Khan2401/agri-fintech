@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from './store/auth'
 import { ReactNode, useEffect } from 'react'
 import Header from './components/layout/Header'
+import { getDashboardPath } from './lib/auth-routing'
+import AccountReviewCard from './components/auth/AccountReviewCard'
 
 // PUBLIC PAGES
 import Home from './pages/public/Home'
@@ -14,6 +16,7 @@ import DoctorTaskBoard from './pages/doctor/TaskBoard'
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
 import ForgotPassword from './pages/auth/ForgotPassword'
+import MfaChallenge from './pages/auth/MfaChallenge'
 
 // INVESTOR PAGES
 import InvestorDashboard from './pages/investor/Dashboard'
@@ -41,6 +44,12 @@ import ProfileSettings from './pages/profile/Settings'
 
 type RoleType = 'investor' | 'farmer' | 'admin'
 
+const LoadingScreen = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600"></div>
+  </div>
+)
+
 // Layout component that includes Header
 const Layout = () => {
   // Load auth on mount
@@ -60,10 +69,17 @@ const Layout = () => {
 // Protected Route
 const RequireAuth = ({ allowedRoles }: { allowedRoles: RoleType[] }) => {
   const { profile, isLoading } = useAuth()
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600"></div></div>
+  if (isLoading) return <LoadingScreen />
   if (!profile) return <Navigate to="/login" replace />
   if (!allowedRoles.includes(profile.role as RoleType)) return <Navigate to="/" replace />
   return <Outlet />
+}
+
+const PublicOnly = ({ children }: { children: ReactNode }) => {
+  const { profile, isLoading } = useAuth()
+  if (isLoading) return <LoadingScreen />
+  if (profile) return <Navigate to={getDashboardPath(profile)} replace />
+  return <>{children}</>
 }
 
 // Farmer Guard
@@ -83,6 +99,14 @@ const AdminGuard = ({ children }: { children: ReactNode }) => {
   return <>{children}</>
 }
 
+const ApprovedAccountGuard = ({ children }: { children: ReactNode }) => {
+  const { profile, isLoading } = useAuth()
+  if (isLoading) return null
+  if (!profile) return <Navigate to="/login" replace />
+  if (profile.status !== 'approved') return <AccountReviewCard profile={profile} />
+  return <>{children}</>
+}
+
 export const router = createBrowserRouter([
   {
     element: <Layout />,
@@ -94,9 +118,10 @@ export const router = createBrowserRouter([
       { path: '/risk', element: <div className="p-8">Risk Disclosure</div> },
       { path: '/doctor/onboard', element: <DoctorOnboarding /> },
       { path: '/doctor/tasks', element: <DoctorTaskBoard /> },
-      { path: '/login', element: <Login /> },
-      { path: '/signup', element: <Signup /> },
+      { path: '/login', element: <PublicOnly><Login /></PublicOnly> },
+      { path: '/signup', element: <PublicOnly><Signup /></PublicOnly> },
       { path: '/forgot-password', element: <ForgotPassword /> },
+      { path: '/mfa', element: <MfaChallenge /> },
       // Investor routes
       {
         path: '/investor',
@@ -104,8 +129,8 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/investor/dashboard" replace /> },
           { path: 'dashboard', element: <InvestorDashboard /> },
-          { path: 'wallet', element: <InvestorWallet /> },
-          { path: 'investments', element: <InvestorInvestments /> },
+          { path: 'wallet', element: <ApprovedAccountGuard><InvestorWallet /></ApprovedAccountGuard> },
+          { path: 'investments', element: <ApprovedAccountGuard><InvestorInvestments /></ApprovedAccountGuard> },
         ]
       },
       
@@ -114,8 +139,8 @@ export const router = createBrowserRouter([
         path: '/farmer',
         element: <RequireAuth allowedRoles={['farmer']} />,
         children: [
-          { index: true, element: <FarmerGuard><FarmerDashboard /></FarmerGuard> },
-          { path: 'dashboard', element: <FarmerGuard><FarmerDashboard /></FarmerGuard> },
+          { index: true, element: <Navigate to="/farmer/dashboard" replace /> },
+          { path: 'dashboard', element: <FarmerDashboard /> },
           { path: 'kyc', element: <KYCVerification /> },
           { path: 'add', element: <FarmerGuard><FarmerAddLivestock /></FarmerGuard> },
           { path: 'wallet', element: <FarmerGuard><FarmerWallet /></FarmerGuard> },

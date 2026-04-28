@@ -36,7 +36,7 @@ ALTER TABLE public.fraud_flags ADD COLUMN IF NOT EXISTS auto_action TEXT CHECK (
 CREATE TABLE public.shariah_reports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   livestock_id UUID REFERENCES public.livestock(id) ON DELETE CASCADE,
-  is_compliant BOOLEAN NOT NULL,
+  is_compliant BOOLEAN,
   compliance_score NUMERIC(3,2),
   scholarly_references TEXT[],
   conditions TEXT[],
@@ -83,7 +83,7 @@ CREATE TABLE public.relief_claims (
   event_type TEXT CHECK (event_type IN ('flood', 'disease', 'theft', 'drought', 'other')),
   claimed_amount NUMERIC(12,2) NOT NULL,
   evidence_urls TEXT[],
-  status entity_status DEFAULT 'pending',
+  status public.status DEFAULT 'pending',
   approved_amount NUMERIC(12,2),
   distributed_at TIMESTAMPTZ,
   voter_approvals JSONB DEFAULT '[]'::jsonb, -- [{ investor_id, voted_yes }]
@@ -170,7 +170,7 @@ DECLARE
   v_deduct_percent NUMERIC := 0.005; -- 0.5%
   v_deduct_amount NUMERIC;
 BEGIN
-  IF TG_TABLE_NAME = 'profit_distributions' AND NEW.status = 'completed' THEN
+  IF TG_TABLE_NAME = 'profit_distributions' THEN
     v_deduct_amount := NEW.amount * v_deduct_percent;
     
     -- Update relief fund pool
@@ -180,10 +180,10 @@ BEGIN
     WHERE id = (SELECT id FROM public.relief_fund LIMIT 1);
     
     -- Log the deduction
-    INSERT INTO public.transactions (user_id, type, amount, reference_id, meta)
+    INSERT INTO public.transactions (user_id, type, amount, reference_id, metadata)
     VALUES (
       NULL, -- System account
-      'relief_contribution',
+      'platform_fee',
       v_deduct_amount,
       NEW.id,
       jsonb_build_object('source', 'profit_distribution', 'percent', v_deduct_percent)
@@ -203,13 +203,13 @@ SELECT
   i.investor_id,
   COUNT(DISTINCT i.livestock_id) as total_animals,
   SUM(i.amount) as total_invested,
-  AVG(ai.output_data->>'risk_score') as avg_risk_score,
+  AVG(NULLIF(ai.output_data->>'risk_score', '')::numeric) as avg_risk_score,
   COUNT(CASE WHEN ai.output_data->>'risk_level' = 'high' THEN 1 END) as high_risk_count,
   SUM(CASE WHEN l.status = 'sold' THEN pd.amount ELSE 0 END) as realized_profit
 FROM public.investments i
 JOIN public.livestock l ON i.livestock_id = l.id
 LEFT JOIN public.ai_predictions ai ON l.id = ai.livestock_id AND ai.prediction_type = 'health_risk'
-LEFT JOIN public.profit_distributions pd ON i.id = pd.investment_id
+LEFT JOIN public.profit_distributions pd ON i.investor_id = pd.investor_id
 GROUP BY i.investor_id;
 
 -- Farmer Performance Score
@@ -219,7 +219,7 @@ SELECT
   COUNT(l.id) as total_listings,
   COUNT(CASE WHEN l.status = 'sold' THEN 1 END) as successful_sales,
   AVG(CASE WHEN l.status = 'sold' THEN (l.cost_price / NULLIF(l.shares_available, 0)) END) as avg_roi_delivered,
-  AVG(vr.health_status) FILTER (WHERE vr.health_status IS NOT NULL) as avg_animal_health,
+  COUNT(vr.id) FILTER (WHERE vr.health_status IS NOT NULL) as health_reports_count,
   COUNT(ff.id) FILTER (WHERE ff.status = 'pending') as pending_fraud_flags,
   -- Composite score (0-100)
   (

@@ -4,6 +4,7 @@ import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { User, LogOut, LayoutDashboard, Menu, X, Shield, Sprout, TrendingUp } from 'lucide-react'
 import { useState } from 'react'
+import { getDashboardPath } from '../../lib/auth-routing'
 
 export default function Header() {
   const { profile, user, logout } = useAuth()
@@ -13,13 +14,6 @@ export default function Header() {
   const handleLogout = async () => {
     await logout()
     navigate('/')
-  }
-
-  const getDashboardPath = () => {
-    if (!profile) return '/'
-    if (profile.role === 'admin') return '/admin'
-    if (profile.role === 'farmer') return '/farmer'
-    return '/investor'
   }
 
   const RoleBadge = () => {
@@ -46,7 +40,7 @@ export default function Header() {
             
             {profile ? (
               <div className="flex items-center gap-4">
-                <Link to={getDashboardPath()} className="flex items-center gap-2 text-sm text-white/88 hover:text-[#f0cf83] font-medium">
+                <Link to={getDashboardPath(profile)} className="flex items-center gap-2 rounded-md border border-[#d8b56d]/45 bg-[#d8b56d] px-3 py-2 text-sm font-semibold text-[#0d1514] shadow-sm hover:bg-[#f0cf83]">
                   <LayoutDashboard className="h-4 w-4" /> Dashboard
                 </Link>
                 <div className="flex items-center gap-3 pl-4 border-l border-[#d8b56d]/20">
@@ -84,7 +78,7 @@ export default function Header() {
           <Link to="/doctor/onboard" className="block text-[#f8f1df]/80 font-medium" onClick={() => setMobileOpen(false)}>Doctor Network</Link>
           {profile ? (
             <>
-              <Link to={getDashboardPath()} className="block text-[#f8f1df]/80 font-medium" onClick={() => setMobileOpen(false)}>Dashboard</Link>
+              <Link to={getDashboardPath(profile)} className="block rounded-md bg-[#d8b56d] px-3 py-2 font-semibold text-[#0d1514]" onClick={() => setMobileOpen(false)}>Dashboard</Link>
               <Link to="/profile" className="block text-[#f8f1df]/80 font-medium" onClick={() => setMobileOpen(false)}>Profile</Link>
               <button onClick={() => { handleLogout(); setMobileOpen(false); }} className="block w-full text-left text-rose-600 font-medium">Logout</button>
               <RoleBadge />

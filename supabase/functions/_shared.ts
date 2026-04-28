@@ -12,6 +12,11 @@ export const corsHeaders = {
   "Content-Type": "application/json"
 }
 
+export const SaleApprovalSchema = z.object({
+  saleId: z.string().uuid(),
+  platformFeeRate: z.coerce.number().min(0).max(1).default(0.05)
+})
+
 export function errorResponse(msg: string, status = 400) {
   return new Response(JSON.stringify({ error: msg }), { status, headers: corsHeaders })
 }

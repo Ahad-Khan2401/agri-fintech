@@ -6,9 +6,9 @@ BEGIN
     SELECT 1
     FROM pg_type t
     JOIN pg_enum e ON t.oid = e.enumtypid
-    WHERE t.typname = 'tx_type' AND e.enumlabel = 'withdrawal'
+    WHERE t.typname = 'tx_type' AND t.typnamespace = 'public'::regnamespace AND e.enumlabel = 'withdrawal'
   ) THEN
-    ALTER TYPE tx_type ADD VALUE 'withdrawal';
+    ALTER TYPE public.tx_type ADD VALUE 'withdrawal';
   END IF;
 END $$;
 
@@ -18,9 +18,9 @@ BEGIN
     SELECT 1
     FROM pg_type t
     JOIN pg_enum e ON t.oid = e.enumtypid
-    WHERE t.typname = 'tx_type' AND e.enumlabel = 'farmer_payout'
+    WHERE t.typname = 'tx_type' AND t.typnamespace = 'public'::regnamespace AND e.enumlabel = 'farmer_payout'
   ) THEN
-    ALTER TYPE tx_type ADD VALUE 'farmer_payout';
+    ALTER TYPE public.tx_type ADD VALUE 'farmer_payout';
   END IF;
 END $$;
 

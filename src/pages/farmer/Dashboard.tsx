@@ -6,11 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../..
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Input } from '../../components/ui/Input'
-import { Alert, AlertDescription, AlertTitle } from '../../components/ui/Alert'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import { Plus, Users, Wallet, TrendingUp, AlertTriangle, Calculator, ArrowRight } from 'lucide-react'
 import DashboardShell from '../../components/dashboard/DashboardShell'
 import MetricTile from '../../components/dashboard/MetricTile'
+import AccountReviewCard from '../../components/auth/AccountReviewCard'
 
 export default function FarmerDashboard() {
   const { profile } = useAuth()
@@ -96,6 +96,10 @@ export default function FarmerDashboard() {
     )
   }
 
+  if (profile && !isKycApproved) {
+    return <AccountReviewCard profile={profile} />
+  }
+
   return (
     <DashboardShell
       label="Farmer Growth Desk"
@@ -117,17 +121,6 @@ export default function FarmerDashboard() {
         </div>
       )}
     >
-        {!isKycApproved && (
-          <Alert className="mb-6 border-yellow-200 bg-yellow-50">
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            <AlertTitle className="text-yellow-800">KYC Approval Required</AlertTitle>
-            <AlertDescription className="text-yellow-700">
-              Aap financing requests tab submit kar sakte hain jab KYC approved ho.{' '}
-              <Link to="/farmer/kyc" className="underline font-medium">Complete KYC</Link>
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="responsive-grid mb-6">
           <MetricTile label="Total Projects" value={stats.totalProjects.toString()} icon={<Wallet className="h-5 w-5" />} tone="blue" />
           <MetricTile label="Funded / Active" value={stats.fundedProjects.toString()} icon={<TrendingUp className="h-5 w-5" />} tone="emerald" />

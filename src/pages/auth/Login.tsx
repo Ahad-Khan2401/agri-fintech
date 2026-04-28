@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../../components/ui/Form'
+import { getDashboardPath } from '../../lib/auth-routing'
 import { AlertCircle, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
 
 const schema = z.object({
@@ -37,15 +38,7 @@ export default function Login() {
   const redirectByRole = () => {
     const { profile: latestProfile } = useAuth.getState()
     if (!latestProfile) return
-    if (latestProfile.role === 'admin') {
-      navigate('/admin', { replace: true })
-    } else if (latestProfile.role === 'farmer') {
-      navigate(latestProfile.status === 'approved' ? '/farmer' : '/farmer/kyc', { replace: true })
-    } else if (latestProfile.role === 'investor') {
-      navigate('/investor', { replace: true })
-    } else {
-      navigate('/', { replace: true })
-    }
+    navigate(getDashboardPath(latestProfile), { replace: true })
   }
 
   useEffect(() => {
@@ -167,6 +160,10 @@ export default function Login() {
 
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
                 <strong>Security:</strong> Admin access is protected with role-based permissions and audit monitoring.
+              </div>
+
+              <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs text-stone-600">
+                New to MaweshiHub? Create your account first and choose Farmer or Investor one time. Existing users can continue with Google safely.
               </div>
             </CardContent>
 

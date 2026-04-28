@@ -6,6 +6,13 @@ ALTER TABLE public.profiles
 
 DO $$
 BEGIN
+  IF to_regtype('public.user_role') IS NULL THEN
+    CREATE TYPE public.user_role AS ENUM ('investor', 'farmer', 'admin');
+  END IF;
+END $$;
+
+DO $$
+BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
@@ -39,9 +46,13 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  requested_role user_role;
+  requested_role public.user_role;
 BEGIN
-  requested_role := COALESCE((NEW.raw_user_meta_data ->> 'role')::user_role, 'investor'::user_role);
+  requested_role := (NEW.raw_user_meta_data ->> 'role')::public.user_role;
+
+  IF requested_role IS NULL THEN
+    RETURN NEW;
+  END IF;
 
   IF requested_role = 'admin' THEN
     requested_role := 'investor';

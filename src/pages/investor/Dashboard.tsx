@@ -9,6 +9,7 @@ import { formatCurrency } from '../../lib/utils'
 import DashboardShell from '../../components/dashboard/DashboardShell'
 import MetricTile from '../../components/dashboard/MetricTile'
 import { AllocationBars, Sparkline } from '../../components/dashboard/MiniCharts'
+import AccountReviewCard from '../../components/auth/AccountReviewCard'
 import { 
   Wallet, 
   TrendingUp, 
@@ -99,6 +100,10 @@ export default function InvestorDashboard() {
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600"></div>
       </div>
     )
+  }
+
+  if (profile && profile.status !== 'approved') {
+    return <AccountReviewCard profile={profile} />
   }
 
   const isDark = theme === 'dark'

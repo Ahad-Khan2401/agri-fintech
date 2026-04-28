@@ -34,9 +34,15 @@ const OAUTH_ROLE_KEY = 'maweshihub_oauth_role'
 async function ensureProfile(user: any): Promise<UserProfile> {
   const metadata = user.user_metadata || {}
   const storedRole = typeof window !== 'undefined' ? window.localStorage.getItem(OAUTH_ROLE_KEY) : null
-  const role = (metadata.role === 'farmer' || metadata.role === 'investor' || storedRole === 'farmer' || storedRole === 'investor')
-    ? (metadata.role || storedRole)
-    : 'investor'
+  const role = (metadata.role === 'farmer' || metadata.role === 'investor')
+    ? metadata.role
+    : (storedRole === 'farmer' || storedRole === 'investor')
+      ? storedRole
+      : null
+
+  if (!role) {
+    throw new Error('Please create your account from Signup and choose Farmer or Investor first.')
+  }
 
   const fullName = metadata.full_name || metadata.name || null
   const phone = metadata.phone || null
@@ -84,25 +90,13 @@ function withoutKeys<T extends Record<string, any>>(payload: T, keys: string[]) 
 async function reconcileOAuthRole(profile: UserProfile, user: any): Promise<UserProfile> {
   if (typeof window === 'undefined') return profile
   const storedRole = window.localStorage.getItem(OAUTH_ROLE_KEY)
-  const isGoogleUser = Boolean(user?.app_metadata?.provider === 'google' || user?.identities?.some((identity: any) => identity.provider === 'google'))
-
-  if (!storedRole || !isGoogleUser || profile.role === 'admin' || profile.role === storedRole || profile.status !== 'pending') {
-    if (storedRole && (profile.role === storedRole || profile.role === 'admin')) {
-      window.localStorage.removeItem(OAUTH_ROLE_KEY)
-    }
-    return profile
+  if (storedRole) {
+    window.localStorage.removeItem(OAUTH_ROLE_KEY)
   }
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({ role: storedRole })
-    .eq('id', profile.id)
-    .select('*')
-    .single()
-
-  if (error) return profile
-  window.localStorage.removeItem(OAUTH_ROLE_KEY)
-  return data as UserProfile
+  if (user?.user_metadata?.role && user.user_metadata.role !== profile.role && profile.role !== 'admin') {
+    await supabase.auth.updateUser({ data: { role: profile.role } }).catch(() => null)
+  }
+  return profile
 }
 
 export const useAuth = create<AuthState>()(
