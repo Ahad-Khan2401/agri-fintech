@@ -81,8 +81,23 @@ export default function AdminMedicalOps() {
       if (doctorRes.error) throw doctorRes.error
       if (assignmentRes.error) throw assignmentRes.error
 
+      const driftedCleared = (assignmentRes.data || []).filter((a: any) => a.status === 'cleared' && a.livestock?.status !== 'active')
+      const driftedRejected = (assignmentRes.data || []).filter((a: any) => a.status === 'rejected' && a.livestock?.status !== 'rejected')
+      await Promise.all([
+        ...driftedCleared.map((a: any) => supabase.from('livestock').update({ status: 'active' }).eq('id', a.livestock_id)),
+        ...driftedRejected.map((a: any) => supabase.from('livestock').update({ status: 'rejected' }).eq('id', a.livestock_id)),
+      ])
+
       setDoctors(doctorRes.data || [])
-      setAssignments(assignmentRes.data || [])
+      if (driftedCleared.length || driftedRejected.length) {
+        const { data: refreshed } = await supabase
+          .from('medical_assignments')
+          .select('*, doctor:veterinary_partners(*), livestock:livestock(*, farmer:profiles(full_name, phone, status))')
+          .order('created_at', { ascending: false })
+        setAssignments(refreshed || assignmentRes.data || [])
+      } else {
+        setAssignments(assignmentRes.data || [])
+      }
     } catch (err: any) {
       setSchemaError(err.message || 'Unable to load medical operations data.')
     } finally {
@@ -234,6 +249,18 @@ export default function AdminMedicalOps() {
         .from('livestock')
         .update({ status: isApproved ? 'active' : 'rejected' })
         .eq('id', reportForm.livestockId)
+
+      if (livestock?.farmer_id) {
+        await supabase.from('notifications').insert({
+          user_id: livestock.farmer_id,
+          type: isApproved ? 'medical_cleared' : 'medical_rejected',
+          title: isApproved ? 'Livestock medically cleared' : 'Livestock medical review rejected',
+          message: isApproved
+            ? `${livestock.title || 'Your livestock'} is now active for investors.`
+            : `${livestock.title || 'Your livestock'} was rejected after medical review.`,
+          metadata: { livestock_id: reportForm.livestockId, assignment_id: reportForm.assignmentId },
+        }).then(() => null)
+      }
 
       if (isApproved && livestock?.insurance_enabled) {
         await supabase.from('insurance_policies').insert({

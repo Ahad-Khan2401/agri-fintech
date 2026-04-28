@@ -2,14 +2,48 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../store/auth'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
-import { User, LogOut, LayoutDashboard, Menu, X, Shield, Sprout, TrendingUp } from 'lucide-react'
-import { useState } from 'react'
+import { User, LogOut, LayoutDashboard, Menu, X, Shield, Sprout, TrendingUp, Bell } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { getDashboardPath } from '../../lib/auth-routing'
+import { supabase } from '../../lib/supabase'
 
 export default function Header() {
   const { profile, user, logout } = useAuth()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notifications, setNotifications] = useState<any[]>([])
+
+  useEffect(() => {
+    if (!profile) {
+      setNotifications([])
+      return
+    }
+
+    const loadNotifications = async () => {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(8)
+      setNotifications(data || [])
+    }
+
+    loadNotifications()
+    const channel = supabase
+      .channel(`notifications-${profile.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}` },
+        (payload) => setNotifications((prev) => [payload.new, ...prev].slice(0, 8))
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [profile])
 
   const handleLogout = async () => {
     await logout()
@@ -22,6 +56,8 @@ export default function Header() {
     if (profile.role === 'farmer') return <Badge className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1"><Sprout className="h-3 w-3" /> Farmer</Badge>
     return <Badge className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Investor</Badge>
   }
+
+  const unreadCount = notifications.filter((item) => !item.read_at).length
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#d8b56d]/25 bg-[#0d1514] shadow-[0_18px_42px_-30px_rgba(0,0,0,0.75)]">
@@ -45,6 +81,37 @@ export default function Header() {
                 </Link>
                 <div className="flex items-center gap-3 pl-4 border-l border-[#d8b56d]/20">
                   <RoleBadge />
+                  <div className="relative">
+                    <button
+                      onClick={() => setNotificationsOpen((open) => !open)}
+                      className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[#d8b56d]/25 bg-[#f8f1df]/10 text-[#d8b56d] hover:bg-white/12"
+                      aria-label="Notifications"
+                    >
+                      <Bell className="h-4 w-4" />
+                      {unreadCount > 0 && (
+                        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </button>
+                    {notificationsOpen && (
+                      <div className="absolute right-0 top-11 z-50 w-80 rounded-lg border border-stone-200 bg-white p-2 text-stone-900 shadow-xl">
+                        <div className="px-3 py-2 text-sm font-semibold">Notifications</div>
+                        {notifications.length === 0 ? (
+                          <p className="px-3 py-5 text-center text-sm text-stone-500">No updates yet.</p>
+                        ) : (
+                          <div className="max-h-80 overflow-y-auto">
+                            {notifications.map((item) => (
+                              <div key={item.id} className="rounded-md px-3 py-2 hover:bg-stone-50">
+                                <p className="text-sm font-semibold">{item.title}</p>
+                                <p className="mt-1 text-xs leading-5 text-stone-600">{item.message}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <button onClick={() => navigate('/profile')} className="flex items-center gap-2 hover:bg-white/8 rounded-full p-1 pr-3 transition">
                     <div className="w-8 h-8 bg-[#f8f1df]/10 rounded-full flex items-center justify-center border border-[#d8b56d]/25">
                       <User className="h-4 w-4 text-[#d8b56d]" />

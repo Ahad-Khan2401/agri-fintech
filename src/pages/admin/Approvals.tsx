@@ -54,6 +54,7 @@ export default function AdminApprovals() {
 
       const attachDocs = (items: any[]) =>
         items
+          .filter((item) => item.status !== 'approved')
           .map((item) => {
             const allDocs = (kycRes.data || []).filter((doc: any) => doc.user_id === item.id && doc.document_type !== 'meta')
             const latestByType = new Map<string, any>()
@@ -95,12 +96,21 @@ export default function AdminApprovals() {
   const approveUser = async (userId: string) => {
     setProcessingId(userId)
     try {
-      await supabase.from('profiles').update({ status: 'approved' }).eq('id', userId)
-      await supabase
+      const { error: profileError } = await supabase.from('profiles').update({ status: 'approved' }).eq('id', userId)
+      if (profileError) throw profileError
+      const { error: docsError } = await supabase
         .from('kyc_documents')
-        .update({ status: 'approved', notes: 'Approved by admin' })
+        .update({ status: 'approved', notes: 'Approved by admin', admin_notes: null })
         .eq('user_id', userId)
         .neq('document_type', 'meta')
+      if (docsError) throw docsError
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        type: 'kyc_approved',
+        title: 'KYC approved',
+        message: 'Your account is verified. Dashboard features are now unlocked.',
+        metadata: { source: 'admin_approvals' },
+      }).then(() => null)
       await loadData()
     } finally {
       setProcessingId(null)
@@ -176,7 +186,14 @@ export default function AdminApprovals() {
     try {
       if (rejectTarget.type === 'farmers' || rejectTarget.type === 'investors') {
         await supabase.from('profiles').update({ status: 'rejected' }).eq('id', rejectTarget.id)
-        await supabase.from('kyc_documents').update({ status: 'rejected', notes: rejectReason }).eq('user_id', rejectTarget.id).eq('status', 'pending')
+        await supabase.from('kyc_documents').update({ status: 'rejected', notes: rejectReason, admin_notes: rejectReason }).eq('user_id', rejectTarget.id).eq('status', 'pending')
+        await supabase.from('notifications').insert({
+          user_id: rejectTarget.id,
+          type: 'kyc_rejected',
+          title: 'KYC needs correction',
+          message: rejectReason,
+          metadata: { source: 'admin_approvals' },
+        }).then(() => null)
       }
       if (rejectTarget.type === 'projects') {
         await supabase.from('livestock').update({ status: 'rejected' }).eq('id', rejectTarget.id)
@@ -437,10 +454,16 @@ function KycTable({
                   <TableCell><KycViewer docs={row.docs || []} /></TableCell>
                   <TableCell>{formatDate(row.created_at)}</TableCell>
                   <TableCell className="space-x-2">
-                    <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => onApprove(row.id)} disabled={processingId === row.id}>
-                      {processingId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Approve'}
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-red-600 border-red-300" onClick={() => onReject(row.id)}>Reject</Button>
+                    {row.status === 'approved' ? (
+                      <Badge variant="success">Approved</Badge>
+                    ) : (
+                      <>
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => onApprove(row.id)} disabled={processingId === row.id}>
+                          {processingId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Approve'}
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-red-600 border-red-300" onClick={() => onReject(row.id)}>Reject</Button>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
